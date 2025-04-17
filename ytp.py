@@ -7,13 +7,16 @@ from threading import Thread
 from termcolor import colored
 import pyfiglet
 
+
 def create_ipc_socket():
     socket_dir = os.path.expanduser("~/.mpv_sockets")
     os.makedirs(socket_dir, exist_ok=True)
     return tempfile.mktemp(prefix="mpvsocket_", dir=socket_dir)
 
+
 def garis(teks="=", panjang=60):
     return teks * panjang
+
 
 def header():
     os.system("clear")
@@ -27,9 +30,11 @@ def header():
     print(colored("0. Keluar", "red"))
     print(colored(garis("-"), "cyan"))
 
+
 def tampil_kontrol():
     print(colored(garis(), "cyan"))
-    print(colored(" Kontrol Pemutaran MPV ".center(60, "="), "green", attrs=["bold"]))
+    print(colored(" Kontrol Pemutaran MPV ".center(
+        60, "="), "green", attrs=["bold"]))
     print(colored("""
      ► [←]  Seek -5 detik        [→]  Seek +5 detik
      ► [↑]  Seek +1 menit        [↓]  Seek -1 menit
@@ -40,9 +45,11 @@ def tampil_kontrol():
     """, "yellow"))
     print(colored(garis(), "cyan"))
 
+
 def hapus_socket(ipc_socket):
     if os.path.exists(ipc_socket):
         os.remove(ipc_socket)
+
 
 def get_metadata(url):
     try:
@@ -53,19 +60,19 @@ def get_metadata(url):
             "--no-warnings",
             "--playlist-items", "1"
         ]
-        
+
         if os.path.exists("cookies.txt"):
             cmd.extend(["--cookies", "cookies.txt"])
-        
+
         cmd.append(url)
-        
+
         result = subprocess.run(
             cmd,
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE, 
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True
         )
-        
+
         if result.returncode == 0:
             parts = result.stdout.strip().split("||")
             if len(parts) == 3:
@@ -75,8 +82,9 @@ def get_metadata(url):
                 return title, duration, uploader
     except Exception as e:
         print(colored(f"Gagal mengambil metadata: {str(e)}", "red"))
-    
+
     return "Unknown", "??:??", "Unknown"
+
 
 def play_mpv(url, title, duration, uploader):
     ipc_socket = create_ipc_socket()
@@ -87,17 +95,18 @@ def play_mpv(url, title, duration, uploader):
         "--force-window=no",
         "--ytdl-format=bestaudio",
     ]
-    
+
     if os.path.exists("cookies.txt"):
         cmd.append("--ytdl-raw-options=cookies=cookies.txt")
-    
+
     cmd.append(url)
-    
-    print(colored("\n▶ Now Playing:", "magenta"), colored(f"{title} - {uploader} [{duration}]", "green"))
+
+    print(colored("\n▶ Now Playing:", "magenta"), colored(
+        f"{title} - {uploader} [{duration}]", "green"))
     print(colored(garis("="), "cyan"))
-    
+
     process = subprocess.Popen(cmd)
-    
+
     for _ in range(20):
         if os.path.exists(ipc_socket):
             break
@@ -107,7 +116,7 @@ def play_mpv(url, title, duration, uploader):
         return
 
     Thread(target=monitor_status, args=(ipc_socket,), daemon=True).start()
-    
+
     try:
         process.wait()
     except KeyboardInterrupt:
@@ -115,6 +124,7 @@ def play_mpv(url, title, duration, uploader):
         process.terminate()
     finally:
         hapus_socket(ipc_socket)
+
 
 def monitor_status(ipc_socket):
     import json
@@ -125,7 +135,7 @@ def monitor_status(ipc_socket):
                 input='{"command": ["get_property", "time-pos"]}\n',
                 text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
             )
-            
+
             lines = res.stdout.strip().splitlines()
             for line in lines:
                 if '"data"' in line:
@@ -139,6 +149,7 @@ def monitor_status(ipc_socket):
         except Exception:
             break
 
+
 def ulangi_pemutaran():
     print(colored("\nPilih aksi:", "cyan", attrs=["bold"]))
     print(colored("1. Ulangi pemutaran", "green"))
@@ -150,9 +161,11 @@ def ulangi_pemutaran():
         print("\n" + colored("Operasi dihentikan.", "red"))
         return "0"
 
+
 def pilih_dengan_fzf(hasil):
     try:
-        daftar = "\n".join([f"{title} | {dur} | {url}" for title, dur, url in hasil])
+        daftar = "\n".join(
+            [f"{title} | {dur} | {url}" for title, dur, url in hasil])
         fzf = subprocess.run(
             ["fzf", "--prompt=◉ Pilih: "],
             input=daftar,
@@ -169,6 +182,7 @@ def pilih_dengan_fzf(hasil):
         print(colored(f"Gagal menggunakan fzf: {str(e)}", "red"))
     return None
 
+
 def download_audio(url, gunakan_fzf=False):
     try:
         if "playlist" in url.lower():
@@ -179,26 +193,27 @@ def download_audio(url, gunakan_fzf=False):
                 "--print", "%(title)s|%(duration_string)s|%(url)s",
                 "--no-warnings"
             ]
-            
+
             if os.path.exists("cookies.txt"):
                 cmd.extend(["--cookies", "cookies.txt"])
-                
+
             cmd.append(url)
-            
+
             result = subprocess.run(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
             )
-            
+
             lines = result.stdout.strip().splitlines()
             hasil = []
             for line in lines:
                 if "|" in line:
                     parts = line.split("|")
                     if len(parts) == 3:
-                        hasil.append((parts[0].strip(), parts[1].strip(), parts[2].strip()))
+                        hasil.append(
+                            (parts[0].strip(), parts[1].strip(), parts[2].strip()))
 
             if gunakan_fzf:
                 url_video = pilih_dengan_fzf(hasil)
@@ -222,33 +237,37 @@ def download_audio(url, gunakan_fzf=False):
             "--add-metadata",
             "--output", "%(title)s.%(ext)s",
         ]
-        
+
         if os.path.exists("cookies.txt"):
             cmd.extend(["--cookies", "cookies.txt"])
-            
+
         cmd.append(url_video)
-        
+
         try:
             subprocess.run(cmd, check=True)
             print(colored("✓ Unduhan selesai!", "green", attrs=["bold"]))
         except subprocess.CalledProcessError as e:
-            print(colored(f"✗ Gagal mengunduh: {str(e)}", "red", attrs=["bold"]))
-            
+            print(colored(f"✗ Gagal mengunduh: {
+                  str(e)}", "red", attrs=["bold"]))
+
     except KeyboardInterrupt:
         print("\n" + colored("Unduhan dibatalkan.", "red"))
     except Exception as e:
         print(colored(f"Error: {str(e)}", "red"))
 
+
 def main():
     # Peringatan jika cookies.txt tidak ada
     if not os.path.exists("cookies.txt"):
-        print(colored("\n⚠ Warning: cookies.txt tidak ditemukan. Beberapa video mungkin tidak dapat diakses.", "yellow"))
+        print(colored(
+            "\n⚠ Warning: cookies.txt tidak ditemukan. Beberapa video mungkin tidak dapat diakses.", "yellow"))
         time.sleep(2)
-    
+
     while True:
         try:
             header()
-            opsi = input(colored("Pilih opsi [0-2]: ", "cyan", attrs=["bold"])).strip()
+            opsi = input(
+                colored("Pilih opsi [0-2]: ", "cyan", attrs=["bold"])).strip()
 
             if opsi == "0":
                 print(colored("Keluar dari program.", "red"))
@@ -256,8 +275,9 @@ def main():
 
             elif opsi == "1":
                 try:
-                    query = input(colored("Masukkan judul atau link: ", "green", attrs=["bold"])).strip()
-                    
+                    query = input(
+                        colored("Masukkan judul atau link: ", "green", attrs=["bold"])).strip()
+
                     if query.startswith(("http://", "https://")):
                         url = query
                     else:
@@ -269,28 +289,29 @@ def main():
                             "--no-playlist",
                             "--no-warnings"
                         ]
-                        
+
                         if os.path.exists("cookies.txt"):
                             cmd.extend(["--cookies", "cookies.txt"])
-                            
+
                         result = subprocess.run(
                             cmd,
                             stdout=subprocess.PIPE,
                             text=True
                         )
-                        
+
                         lines = result.stdout.strip().splitlines()
                         hasil = []
                         for line in lines:
                             if "|" in line:
                                 parts = line.split("|")
                                 if len(parts) == 3:
-                                    hasil.append((parts[0].strip(), parts[1].strip(), parts[2].strip()))
+                                    hasil.append(
+                                        (parts[0].strip(), parts[1].strip(), parts[2].strip()))
 
                         if not hasil:
                             print(colored("Tidak ada hasil ditemukan.", "red"))
                             continue
-                            
+
                         url = pilih_dengan_fzf(hasil)
                         if not url:
                             continue
@@ -316,60 +337,75 @@ def main():
 
             elif opsi == "2":
                 try:
-                    print(colored("\nPilih mode playlist:", "yellow", attrs=["bold"]))
+                    print(colored("\nPilih mode playlist:",
+                          "yellow", attrs=["bold"]))
                     print(colored("1. Pilih video dengan fzf", "green"))
                     print(colored("2. Putar otomatis", "green"))
                     print(colored("0. Kembali", "red"))
-                    
-                    mode = input(colored("Pilihan [0-2]: ", "cyan")).strip()
-                    
-                    if mode == "0":
-                        continue
-                        
-                    query = input(colored("Masukkan link playlist: ", "green")).strip()
-                    
-                    if mode == "1":
-                        print(colored("Memuat daftar video...", "blue"))
-                        cmd = [
-                            "yt-dlp",
-                            "--flat-playlist",
-                            "--print", "%(title)s|%(duration_string)s|%(url)s",
-                            "--no-warnings"
-                        ]
-                        
-                        if os.path.exists("cookies.txt"):
-                            cmd.extend(["--cookies", "cookies.txt"])
-                            
-                        result = subprocess.run(
-                            cmd + [query],
-                            stdout=subprocess.PIPE,
-                            text=True
-                        )
-                        
-                        lines = result.stdout.strip().splitlines()
-                        hasil = []
-                        for line in lines:
-                            if "|" in line:
-                                parts = line.split("|")
-                                if len(parts) == 3:
-                                    hasil.append((parts[0].strip(), parts[1].strip(), parts[2].strip()))
 
-                        if not hasil:
-                            print(colored("Playlist kosong atau tidak dapat diakses.", "red"))
-                            continue
-                            
-                        url = pilih_dengan_fzf(hasil)
-                        if not url:
-                            continue
-                            
-                        title, duration, uploader = get_metadata(url)
-                        tampil_kontrol()
-                        play_mpv(url, title, duration, uploader)
-                        
-                    elif mode == "2":
-                        title, duration, uploader = get_metadata(query)
-                        tampil_kontrol()
-                        play_mpv(query, title, duration, uploader)
+                    while True:
+                        mode = input(
+                            colored("Pilihan [0-2]: ", "cyan")).strip()
+
+                        if mode == "0":
+                            break  # Kembali ke menu utama
+                        elif mode == "1" or mode == "2":
+                            # lanjut ke input playlist & pemutaran
+                            query = input(
+                                colored("Masukkan link playlist: ", "green")).strip()
+
+                            if mode == "1":
+                                query = input(
+                                    colored("Masukkan link playlist: ", "green")).strip()
+                                print(colored("Memuat daftar video...", "blue"))
+                                cmd = [
+                                    "yt-dlp",
+                                    "--flat-playlist",
+                                    "--print", "%(title)s|%(duration_string)s|%(url)s",
+                                    "--no-warnings"
+                                ]
+
+                                if os.path.exists("cookies.txt"):
+                                    cmd.extend(["--cookies", "cookies.txt"])
+
+                                result = subprocess.run(
+                                    cmd + [query],
+                                    stdout=subprocess.PIPE,
+                                    text=True
+                                )
+
+                                lines = result.stdout.strip().splitlines()
+                                hasil = []
+                                for line in lines:
+                                    if "|" in line:
+                                        parts = line.split("|")
+                                        if len(parts) == 3:
+                                            hasil.append(
+                                                (parts[0].strip(), parts[1].strip(), parts[2].strip()))
+
+                                if not hasil:
+                                    print(
+                                        colored("Playlist kosong atau tidak dapat diakses.", "red"))
+                                    continue
+
+                                url = pilih_dengan_fzf(hasil)
+                                if not url:
+                                    continue
+
+                                title, duration, uploader = get_metadata(url)
+                                tampil_kontrol()
+                                play_mpv(url, title, duration, uploader)
+
+                            elif mode == "2":
+                                query = input(
+                                    colored("Masukkan link playlist: ", "green")).strip()
+                                title, duration, uploader = get_metadata(query)
+                                tampil_kontrol()
+                                play_mpv(query, title, duration, uploader)
+
+                        else:
+                            print(
+                                colored("Pilihan tidak valid, silakan pilih antara 0-2.", "red"))
 
                 except KeyboardInterrupt:
                     print("\n" + colored("Operasi dibatalkan.", "red"))
@@ -377,24 +413,32 @@ def main():
 
             elif opsi == "3":
                 try:
-                    print(colored("\nPilih mode unduh:", "yellow", attrs=["bold"]))
+                    print(colored("\nPilih mode unduh:",
+                          "yellow", attrs=["bold"]))
                     print(colored("1. Pilih video dengan fzf", "green"))
                     print(colored("2. Unduh langsung", "green"))
                     print(colored("0. Kembali", "red"))
-                    
-                    mode = input(colored("Pilihan [0-2]: ", "cyan")).strip()
-                    
-                    if mode == "0":
-                        continue
-                        
-                    query = input(colored("Masukkan judul/link: ", "green")).strip()
-                    
+
+                    while True:
+                        mode = input(
+                            colored("Pilihan [0-2]: ", "cyan")).strip()
+                        if mode == "0":
+                            break
+                        elif mode in ["1", "2"]:
+                            query = input(
+                                colored("Masukkan judul/link: ", "green")).strip()
+                            break
+                        else:
+                            print(
+                                colored("Pilihan tidak valid, silakan pilih antara 0-2.", "red"))
+
                     if mode == "1":
                         if query.startswith(("http://", "https://")):
                             if "playlist" in query.lower():
                                 download_audio(query, gunakan_fzf=True)
                             else:
-                                print(colored("Link langsung, mengunduh tanpa fzf...", "yellow"))
+                                print(
+                                    colored("Link langsung, mengunduh tanpa fzf...", "yellow"))
                                 download_audio(query)
                         else:
                             print(colored("Mencari di YouTube...", "blue"))
@@ -405,32 +449,33 @@ def main():
                                 "--no-playlist",
                                 "--no-warnings"
                             ]
-                            
+
                             if os.path.exists("cookies.txt"):
                                 cmd.extend(["--cookies", "cookies.txt"])
-                                
+
                             result = subprocess.run(
                                 cmd,
                                 stdout=subprocess.PIPE,
                                 text=True
                             )
-                            
+
                             lines = result.stdout.strip().splitlines()
                             hasil = []
                             for line in lines:
                                 if "|" in line:
                                     parts = line.split("|")
                                     if len(parts) == 3:
-                                        hasil.append((parts[0].strip(), parts[1].strip(), parts[2].strip()))
+                                        hasil.append(
+                                            (parts[0].strip(), parts[1].strip(), parts[2].strip()))
 
                             if not hasil:
                                 print(colored("Tidak ada hasil ditemukan.", "red"))
                                 continue
-                                
+
                             url = pilih_dengan_fzf(hasil)
                             if url:
                                 download_audio(url)
-                                
+
                     elif mode == "2":
                         download_audio(query)
 
@@ -448,6 +493,7 @@ def main():
         except Exception as e:
             print(colored(f"Error: {str(e)}", "red"))
             time.sleep(2)
+
 
 if __name__ == "__main__":
     main()
