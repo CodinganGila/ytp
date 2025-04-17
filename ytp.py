@@ -249,15 +249,25 @@ def main():
 
             elif opsi == "1":
                 try:
-                    query = input(
-                        colored("Masukkan judul atau link: ", "green", attrs=["bold"])).strip()
-                    if query.startswith("http"):
-                        url = query
-                    else:
+                    print(colored("\nPilih cara pemutaran:",
+                                  "yellow", attrs=["bold"]))
+                    print(colored("1. Putar dengan fzf", "green"))
+                    print(colored("2. Putar langsung tanpa fzf", "green"))
+                    print(colored("3. Putar langsung dari link YouTube", "green"))
+                    print(colored("0. Kembali ke awal", "red"))
+                    pilihan = input(
+                        colored("Pilih opsi [0-3]: ", "cyan", attrs=["bold"])).strip()
+
+                    if pilihan == "0":
+                        continue
+
+                    elif pilihan == "1":
+                        query = input(colored("Masukkan judul: ",
+                                              "green", attrs=["bold"])).strip()
                         print(colored("Mencari...", "blue"))
                         result = subprocess.run(
                             ["yt-dlp", f"ytsearch10:{query}", "--print",
-                                "%(title)s|%(duration_string)s|%(webpage_url)s", "--no-playlist", "--no-warnings"],
+                             "%(title)s|%(duration_string)s|%(webpage_url)s", "--no-playlist", "--no-warnings"],
                             stdout=subprocess.PIPE, text=True
                         )
                         lines = result.stdout.strip().splitlines()
@@ -273,6 +283,115 @@ def main():
                         url = pilih_dengan_fzf(hasil)
                         if not url:
                             continue
+
+                    elif pilihan == "2":
+                        query = input(colored("🔍 Masukkan judul atau kata kunci: ",
+                                              "green", attrs=["bold"])).strip()
+                        print(
+                            colored("\n⏳ Mencari audio... Mohon tunggu sebentar...", "blue"))
+
+                        # Menjalankan pencarian dengan yt-dlp
+                        result = subprocess.run(
+                            ["yt-dlp", f"ytsearch10:{query}", "--print",
+                             "%(title)s|%(duration_string)s|%(webpage_url)s", "--no-playlist", "--no-warnings"],
+                            stdout=subprocess.PIPE, text=True
+                        )
+                        lines = result.stdout.strip().splitlines()
+                        hasil = []
+                        for line in lines:
+                            if "|" in line:
+                                parts = line.split("|")
+                                if len(parts) == 3:
+                                    title, dur, link = [p.strip()
+                                                        for p in parts]
+                                    hasil.append((title, dur, link))
+
+                        # Jika tidak ada hasil pencarian
+                        if not hasil:
+                            print(colored(
+                                "❌ Tidak ada hasil pencarian. Coba dengan kata kunci yang lebih spesifik.", "red", attrs=["bold"]))
+                            continue
+
+                        # Pembatas dan hasil pencarian
+                        print(colored("\n🎶 Hasil Pencarian yang Ditemukan:",
+                                      "yellow", attrs=["bold"]))
+                        print(colored("=" * 50, "yellow"))  # Garis pembatas
+                        for i, (title, dur, _) in enumerate(hasil, 1):
+                            print(colored(f"[{i}] ", "cyan", attrs=[
+                                  "bold"]) + f"{title} ({dur})")
+
+                        print(colored("=" * 50, "yellow"))  # Garis pembatas
+                        # Opsi untuk mencari judul lain
+                        print(colored("[0] Cari judul lain",
+                              "magenta", attrs=["bold"]))
+
+                        # Memilih hasil pencarian
+                        try:
+                            idx = input(colored("🔢 Pilih nomor [1-{}] atau [0] untuk mencari judul lain (Tekan Enter untuk memilih yang pertama): ".format(len(hasil)),
+                                                "green", attrs=["bold"])).strip()
+                            if idx == "0":
+                                continue  # Jika memilih 0, program akan kembali ke awal untuk mencari judul lain
+                            if not idx:
+                                idx = 1
+                            else:
+                                idx = int(idx)
+                            if not (1 <= idx <= len(hasil)):
+                                print(colored(
+                                    "⚠️ Nomor tidak valid. Pilih nomor yang ada dalam daftar.", "red", attrs=["bold"]))
+                                continue
+                            url = hasil[idx - 1][2]
+                        except (ValueError, IndexError):
+                            print(colored(
+                                "❌ Input tidak valid. Harap masukkan nomor yang benar.", "red", attrs=["bold"]))
+                            continue
+
+                        # Menanyakan opsi Auto Play
+                        auto_play = input(colored("\n🔁 Apakah Anda ingin memutar audio secara otomatis setelah memilih? (y/n): ",
+                                                  "green", attrs=["bold"])).strip().lower()
+
+                        # Daftar lagu yang akan diputar
+                        if auto_play == 'y':
+                            print(colored("\n🎧 Memulai pemutaran audio...",
+                                          "blue", attrs=["bold"]))
+
+                            # Fungsi untuk memutar audio dan melanjutkan ke lagu berikutnya
+                            def play_audio(index):
+                                try:
+                                    subprocess.run(
+                                        ["mpv", "--no-video", hasil[index][2]])
+                                except Exception as e:
+                                    print(
+                                        colored(f"❌ Gagal memutar audio: {str(e)}", "red"))
+
+                            # Memulai loop autoplay
+                            # Sesuaikan dengan index list (dimulai dari 0)
+                            idx -= 1
+                            while True:
+                                play_audio(idx)  # Putar audio yang dipilih
+                                # Tunggu sebentar untuk pemutaran audio selesai
+                                time.sleep(3)
+
+                                # Pindah ke lagu berikutnya setelah beberapa detik
+                                idx += 1  # Pindah ke lagu berikutnya
+
+                                # Jika idx melebihi panjang hasil pencarian, kembali ke lagu pertama
+                                if idx >= len(hasil):
+                                    print(colored(
+                                        "\n🔁 Sudah mencapai akhir daftar, kembali ke awal.", "yellow", attrs=["bold"]))
+                                    idx = 0  # Kembali ke lagu pertama
+                        else:
+                            print(colored(
+                                "\n❗ Anda dapat memulai pemutaran audio secara manual nanti.", "yellow"))
+
+                        audio_only = True
+
+                    elif pilihan == "3":
+                        url = input(colored("Masukkan link YouTube: ",
+                                    "green", attrs=["bold"])).strip()
+
+                    else:
+                        print(colored("Pilihan tidak valid.", "red"))
+                        continue
 
                     title, duration, uploader = get_metadata(url)
                     tampil_kontrol()
