@@ -1,0 +1,62 @@
+elif opsi == "2":
+    try:
+        while True:  # Ulangi jika input salah
+            print(colored("\nPilih mode playlist:", "yellow", attrs=["bold"]))
+            print(colored("1. Pilih video dengan fzf", "green"))
+            print(colored("2. Putar otomatis", "green"))
+            print(colored("0. Kembali", "red"))
+            
+            mode = input(colored("Pilihan [0-2]: ", "cyan")).strip()
+            
+            if mode == "0":
+                break  # Kembali ke menu utama
+            elif mode == "1" or mode == "2":
+                query = input(colored("Masukkan link playlist: ", "green")).strip()
+                if mode == "1":
+                    print(colored("Memuat daftar video...", "blue"))
+                    cmd = [
+                        "yt-dlp",
+                        "--flat-playlist",
+                        "--print", "%(title)s|%(duration_string)s|%(url)s",
+                        "--no-warnings"
+                    ]
+                    
+                    if os.path.exists("cookies.txt"):
+                        cmd.extend(["--cookies", "cookies.txt"])
+                        
+                    result = subprocess.run(
+                        cmd + [query],
+                        stdout=subprocess.PIPE,
+                        text=True
+                    )
+                    
+                    lines = result.stdout.strip().splitlines()
+                    hasil = []
+                    for line in lines:
+                        if "|" in line:
+                            parts = line.split("|")
+                            if len(parts) == 3:
+                                hasil.append((parts[0].strip(), parts[1].strip(), parts[2].strip()))
+
+                    if not hasil:
+                        print(colored("Playlist kosong atau tidak dapat diakses.", "red"))
+                        continue
+                    
+                    url = pilih_dengan_fzf(hasil)
+                    if not url:
+                        continue
+                    
+                    title, duration, uploader = get_metadata(url)
+                    tampil_kontrol()
+                    play_mpv(url, title, duration, uploader)
+                    
+                elif mode == "2":
+                    title, duration, uploader = get_metadata(query)
+                    tampil_kontrol()
+                    play_mpv(query, title, duration, uploader)
+            else:
+                print(colored("Pilihan tidak valid, silakan pilih antara 0-2.", "red"))
+                
+    except KeyboardInterrupt:
+        print("\n" + colored("Operasi dibatalkan.", "red"))
+        continue
